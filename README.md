@@ -1,9 +1,7 @@
 # 🌟 YoLikers: Free Facebook Likes Tools
 ![YoLikers](https://github.com/user-attachments/assets/5656ad7a-d403-4a14-8436-1b0055b496a5)
 
-YoLikers is a safe and effective tool to increase likes on Facebook posts. By using cookies from new Facebook accounts, the tool automatically bypasses reCAPTCHA, providing a smooth and seamless experience.
-
-With YoLikers, getting more likes on Facebook is easier and safer. The tool uses cookies-based login from new accounts and comes with a reCAPTCHA bypass feature to ensure a smooth process.
+YoLikers is a safe and efficient tool to increase likes on Facebook posts. Using cookies from new Facebook accounts, it offers a secure login process, bypasses reCAPTCHA verification automatically, and provides a smooth, frictionless experience.
 
 > ⚠️ Important: Use a new or secondary account to avoid security risks on your main profile.
 
@@ -34,7 +32,8 @@ With YoLikers, getting more likes on Facebook is easier and safer. The tool uses
     ```
 
 ## ⚙️ Configuration
-- Update reCAPTCHA Key: Replace the placeholder with your own:
+- **Update reCAPTCHA Key**: Replace the placeholder with your own:
+
     ```python
     self.KEY = '<YOUR_MULTIBOT_KEY>' # Register here: https://multibot.in/dashboard/signup.php
     ```
