@@ -45,7 +45,7 @@ YoLikers is a safe and efficient tool to increase likes on Facebook posts. Using
 - If an error occurs while bypassing the captcha, it is likely that the multibot server is having problems.
 
 ## 🖼️ Screenshot
-![Images]()
+![FunPic_20241127](https://github.com/user-attachments/assets/c3bb35dc-7d4f-43c2-99d4-047dbb69eb18)
 
 ## ❤️ Support & Donations
 Love YoLikers and want to see it continue to grow? Your support means a lot! Show your appreciation by donating on the following platforms:
