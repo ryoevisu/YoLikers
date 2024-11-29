@@ -43,18 +43,13 @@ YoLikers is a safe and efficient tool to increase likes on Facebook posts. Using
 - Make sure the post ID you entered is correct, can be seen by the public and can be liked by the public.
 - If you fail to send a reaction, it is likely that you have reached the limit because each account can only send 10 submissions in one day.
 - If an error occurs while bypassing the captcha, it is likely that the multibot server is having problems.
+- If you only get a few reactions, this is due to the small number of Yolikers users.
 
 ## 🖼️ Screenshot
 ![FunPic_20241127](https://github.com/user-attachments/assets/c3bb35dc-7d4f-43c2-99d4-047dbb69eb18)
 
 ## ❤️ Support & Donations
-Love YoLikers and want to see it continue to grow? Your support means a lot! Show your appreciation by donating on the following platforms:
-
-- [Trakteer](https://trakteer.id/rozhak_official/tip)
-- [PayPal](https://paypal.me/rozhak9)
-- [Saweria](https://saweria.co/rozhak9)
-
-Every contribution helps update features, improve security, and ensure the service remains free for all. Thank you for your support! 🚀
+Support YoLikers' growth and improvements by donating via [Trakteer](https://trakteer.id/rozhak_official/tip), [PayPal](https://paypal.me/rozhak9), or [Saweria](https://saweria.co/rozhak9)—your contributions make a difference! 🚀
 
 ## 📄 License
 This project is licensed under the [MIT License](https://github.com/RozhakXD/YoLikers/blob/main/LICENSE). You are free to use, modify, and redistribute this code, as long as you give attribution to the original developer.
