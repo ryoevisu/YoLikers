@@ -1,254 +1,128 @@
-try:
-    import requests, json, time, re, urllib.parse, os, sys
-    from rich import print as printf
-    from rich.console import Console
-    from rich.panel import Panel
-    from requests.exceptions import RequestException
-except (ModuleNotFoundError) as e:
-    exit(f"Error: {str(e).capitalize()}!")
+import requests
+import re
+import json
+import os
+from rich import print as printf
+from rich.panel import Panel
+from rich.console import Console
 
-def TAMPILKAN_LOGO():
+def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
-    printf(Panel(r"""[bold red]   _     _          _       _ _                     
-  | |   | |        (_)     (_) |                    
-  | |___| | ___     _       _| |  _ _____  ____ ___ 
-  |_____  |/ _ \   | |     | | |_/ ) ___ |/ ___)___)
-   _____| | |_| |  | |_____| |  _ (| ____| |  |___ |
-[bold white]  (_______|\___/   |_______)_|_| \_)_____)_|  (___/ 
-        [underline green]Free Facebook Likes - Coded by Rozhak""", width=59, style="bold bright_black"))
 
-def HEADERS():
-    return {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'Accept-Encoding': 'gzip, deflate',
-        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Connection': 'keep-alive',
-        'Host': 'app.pagalworld2.com',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1',
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 9; RMX3301 Build/PQ3A.190605.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Safari/537.36',
-        'v': '3.9',
-        'X-Requested-With': 'com.yo.app'
-    }
+def get_cookies():
+    clear()
+    printf(Panel("""[bold white]Facebook Cookie Getter
+[bold green]1[bold white]. Get from Email/Pass
+[bold green]2[bold white]. Get from Token
+[bold green]3[bold white]. Exit""", title="[bold white]Menu"))
+    
+    choice = Console().input("[bold white]Choose: ")
+    
+    if choice == '1':
+        return get_from_login()
+    elif choice == '2':
+        return get_from_token()
+    elif choice == '3':
+        exit("[bold red]Thanks for using!")
+    else:
+        printf("[bold red]Invalid choice!")
+        return get_cookies()
 
-SUKSES, COOKIES, GAGAL, LOOPING = [], {"KEY": None, "FB": None}, [], 0
+def get_from_login():
+    clear()
+    printf(Panel("[bold white]Enter your Facebook credentials", title="[bold white]Login"))
+    
+    email = Console().input("[bold white]Email/Phone: ")
+    password = Console().input("[bold white]Password: ")
+    
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+        }
+        
+        # Get initial cookies
+        session = requests.Session()
+        response = session.get('https://m.facebook.com/', headers=headers)
+        
+        # Extract login form data
+        lsd = re.search('name="lsd" value="(.*?)"', str(response.text)).group(1)
+        jazoest = re.search('name="jazoest" value="(.*?)"', str(response.text)).group(1)
+        m_ts = re.search('name="m_ts" value="(.*?)"', str(response.text)).group(1)
+        li = re.search('name="li" value="(.*?)"', str(response.text)).group(1)
+        
+        data = {
+            'lsd': lsd,
+            'jazoest': jazoest,
+            'm_ts': m_ts,
+            'li': li,
+            'try_number': '0',
+            'unrecognized_tries': '0',
+            'email': email,
+            'pass': password,
+            'login': 'Log In'
+        }
+        
+        # Perform login
+        response = session.post('https://m.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&ref=dbl', data=data, headers=headers, allow_redirects=True)
+        
+        if 'c_user' in session.cookies.get_dict():
+            cookies = convert_cookies_to_string(session.cookies.get_dict())
+            save_cookies(cookies)
+            printf(Panel(f"[bold green]Success! Cookies saved to cookies.txt\n\n[bold white]{cookies}", title="[bold white]Cookies"))
+        else:
+            printf(Panel("[bold red]Login failed! Check your credentials or try again later.", title="[bold red]Error"))
+            
+    except Exception as e:
+        printf(Panel(f"[bold red]Error: {str(e)}", title="[bold red]Error"))
+    
+    return get_cookies()
 
-class MAIN:
-    def __init__(self) -> None:
-        self.retry_count = 0
-        self.max_retries = 3
-        self.session = requests.Session()
-        self.session.headers.update(HEADERS())
-
-    def LOGIN_COOKIES(self):
-        try:
-            TAMPILKAN_LOGO()
-            printf(Panel("[bold white]Please fill in your Facebook cookies, make sure to use a new account to login, we\ndo not recommend using a real account!", width=59, style="bold bright_black", subtitle="[bold bright_black][bold bright_black]╭──────", subtitle_align="left", title="[bold bright_black][Cookies Facebook]"))
-            self.COOKIES = Console().input("[bold bright_black]   ╰─> ")
+def get_from_token():
+    clear()
+    printf(Panel("[bold white]Enter your Facebook Access Token", title="[bold white]Token"))
+    
+    token = Console().input("[bold white]Token: ")
+    
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Authorization': f'Bearer {token}'
+        }
+        
+        response = requests.get('https://graph.facebook.com/me?access_token=' + token)
+        
+        if 'error' in response.json():
+            printf(Panel("[bold red]Invalid token!", title="[bold red]Error"))
+        else:
+            session = requests.Session()
+            response = session.get(f'https://api.facebook.com/method/auth.getSessionforApp?access_token={token}&format=json&new_app_id=275254692598279&generate_session_cookies=1')
             
-            if 'c_user=' not in str(self.COOKIES):
-                printf(Panel("[bold red]Invalid cookies format. Please enter valid Facebook cookies.", width=59, style="bold bright_black", title="[bold bright_black][Error]"))
-                return self.LOGIN_COOKIES()
-
-            COOKIES["FB"] = self.COOKIES
-
-            printf(Panel("[bold white]Please fill in the post id you want to react to, make sure the post can be liked by the\npublic and is not private. Fill in only numbers!", width=59, style="bold bright_black", subtitle="[bold bright_black][bold bright_black]╭──────", subtitle_align="left", title="[bold bright_black][ID Postingan]"))
-            self.POST_ID = int(Console().input("[bold bright_black]   ╰─> "))
-            
-            printf(Panel("[bold white]Please fill in the type of reaction you want from `[bold green]LIKE, LOVE, CARE, HAHA, WOW, SAD, and ANGRY[bold white]`, you can only enter one, no more. For example:[bold green] HAHA", width=59, style="bold bright_black", subtitle="[bold bright_black][bold bright_black]╭──────", subtitle_align="left", title="[bold bright_black][Tipe Reaksi]"))
-            self.TIPE_REACTION = Console().input("[bold bright_black]   ╰─> ").upper()
-            
-            if self.TIPE_REACTION not in ['LIKE', 'LOVE', 'CARE', 'HAHA', 'WOW', 'SAD', 'ANGRY']:
-                printf(Panel("[bold red]Invalid reaction type. Please choose from the available options.", width=59, style="bold bright_black", title="[bold bright_black][Error]"))
-                return self.LOGIN_COOKIES()
-
-            printf(Panel("[bold white]Starting process... Press[bold yellow] CTRL + C[bold white] to pause or[bold red] CTRL + Z[bold white] to stop", width=59, style="bold bright_black", title="[bold bright_black][Info]"))
-            
-            while True:
-                try:
-                    if COOKIES['KEY'] is None:
-                        printf("[bold bright_black]   ──>[bold green] Validating cookies...          ", end='\r')
-                        time.sleep(1.5)
-                        if self.VALIDASI_COOKIES(COOKIES["FB"]):
-                            continue
-                    else:
-                        printf("[bold bright_black]   ──>[bold green] Sending reaction...               ", end='\r')
-                        time.sleep(1.5)
-                        self.KIRIMKAN_REAKSI(self.POST_ID, self.TIPE_REACTION)
-                        continue
-                        
-                except RequestException:
-                    printf("[bold bright_black]   ──>[bold red] Network error. Retrying...     ", end='\r')
-                    time.sleep(5)
-                    continue
-                    
-                except KeyboardInterrupt:
-                    printf("                                   ", end='\r')
-                    time.sleep(2)
-                    continue
-                    
-                except Exception as e:
-                    printf(f"[bold bright_black]   ──>[bold red] Error: {str(e)}   ", end='\r')
-                    time.sleep(5)
-                    if self.retry_count < self.max_retries:
-                        self.retry_count += 1
-                        continue
-                    else:
-                        printf(Panel("[bold red]Max retries reached. Please check your connection and cookies.", width=59, style="bold bright_black", title="[bold bright_black][Error]"))
-                        return False
-
-        except Exception as e:
-            printf(Panel(f"[bold red]{str(e)}", width=59, style="bold bright_black", title="[bold bright_black][Error]"))
-            return False
-
-    def VALIDASI_COOKIES(self, facebook_cookies):
-        try:
-            # Parse Facebook cookies
-            cookie_dict = {}
-            for cookie in facebook_cookies.split(';'):
-                if cookie.strip():
-                    key, value = cookie.strip().split('=', 1)
-                    cookie_dict[key.strip()] = value.strip()
-            
-            # First request to get session cookies
-            response = self.session.get('https://app.pagalworld2.com/')
-            
-            # Combine site cookies with Facebook cookies
-            all_cookies = {**self.session.cookies.get_dict(), **cookie_dict}
-            self.COOKIES_STRING = "; ".join([f"{k}={v}" for k, v in all_cookies.items()])
-            
-            self.session.headers.update({'Cookie': self.COOKIES_STRING})
-            params = {
-                'cookie': facebook_cookies,
-                'access_token': '',
-            }
-            
-            response2 = self.session.get('https://app.pagalworld2.com/login.php', params=params)
-            
-            # Improved login validation
-            if 'dashboard.php' in response2.url or 'Login%20Successful' in response2.url:
-                COOKIES["KEY"] = self.COOKIES_STRING
-                printf("[bold bright_black]   ──>[bold green] Login successful!              ", end='\r')
-                time.sleep(2)
-                return True
-            
-            # Try an additional validation if initial check fails
-            try:
-                dashboard_check = self.session.get('https://app.pagalworld2.com/dashboard.php')
-                if 'dashboard' in dashboard_check.url and 'error' not in dashboard_check.url:
-                    COOKIES["KEY"] = self.COOKIES_STRING
-                    printf("[bold bright_black]   ──>[bold green] Login successful!              ", end='\r')
-                    time.sleep(2)
-                    return True
-            except:
-                pass
-            
-            printf("[bold bright_black]   ──>[bold red] Login failed. Retrying...              ", end='\r')
-            time.sleep(2)
-            return False
+            if 'session_cookies' in response.json():
+                cookies = ''
+                for cookie in response.json()['session_cookies']:
+                    cookies += f"{cookie['name']}={cookie['value']}; "
                 
-        except Exception as e:
-            printf(f"[bold bright_black]   ──>[bold red] Validation error: {str(e)}              ", end='\r')
-            time.sleep(2)
-            return False
-
-    def KIRIMKAN_REAKSI(self, post_id, tipe_rections):
-        global SUKSES, GAGAL, LOOPING
-        try:
-            self.session.headers.update({'Cookie': COOKIES['KEY']})
-            
-            # Verify session before each request
-            check_session = self.session.get('https://app.pagalworld2.com/dashboard.php')
-            if 'index.php?error=Login' in str(check_session.url):
-                printf("[bold bright_black]   ──>[bold yellow] Session expired. Relogging...  ", end='\r')
-                COOKIES["KEY"] = None
-                time.sleep(2)
-                return self.VALIDASI_COOKIES(COOKIES["FB"])
-            
-            get_token = self.session.get('https://app.pagalworld2.com/dashboard.php?type=custom')
-            find_token = re.search(r'var token = "(.*?)"', str(get_token.text))
-            
-            if not find_token:
-                printf("[bold bright_black]   ──>[bold red] Token not found. Retrying...  ", end='\r')
-                time.sleep(2)
-                return False
-            
-            token = find_token.group(1)
-            data = {
-                'link': f'https://m.facebook.com/{post_id}',
-                'type': 'react',
-                'token': token,
-                'reaction': tipe_rections
-            }
-            
-            response = self.session.post('https://app.pagalworld2.com/modules/system/ajax.php', data=data)
-            
-            if 'Time Limit Reached' in str(response.text):
-                printf(Panel("[bold red]Daily limit reached. Please try again tomorrow or use another account.", width=59, style="bold bright_black", title="[bold bright_black][Limit]"))
-                return False
-            
-            elif 'Successfully Reacted' in str(response.text):
-                LOOPING += 1
-                SUKSES.append(LOOPING)
-                printf(f"[bold bright_black]   ──>[bold green] Success: {len(SUKSES)} Failed: {len(GAGAL)}              ", end='\r')
-                return True
-            
+                save_cookies(cookies)
+                printf(Panel(f"[bold green]Success! Cookies saved to cookies.txt\n\n[bold white]{cookies}", title="[bold white]Cookies"))
             else:
-                LOOPING += 1
-                GAGAL.append(LOOPING)
-                printf(f"[bold bright_black]   ──>[bold red] Success: {len(SUKSES)} Failed: {len(GAGAL)}              ", end='\r')
-                return False
-            
-        except requests.exceptions.ConnectionError:
-            printf("[bold bright_black]   ──>[bold red] Connection error. Retrying...  ", end='\r')
-            time.sleep(5)
-            return self.KIRIMKAN_REAKSI(post_id, tipe_rections)
-            
-        except Exception as e:
-            LOOPING += 1
-            GAGAL.append(LOOPING)
-            printf(f"[bold bright_black]   ──>[bold red] Error: {str(e)}              ", end='\r')
-            time.sleep(2)
-            return False
+                printf(Panel("[bold red]Failed to get cookies from token!", title="[bold red]Error"))
+    
+    except Exception as e:
+        printf(Panel(f"[bold red]Error: {str(e)}", title="[bold red]Error"))
+    
+    return get_cookies()
 
-class BYPASS:
-    def __init__(self) -> None:
-        pass
+def convert_cookies_to_string(cookie_dict):
+    return '; '.join([f"{key}={value}" for key, value in cookie_dict.items()])
 
-    def reCAPTCHA(self, sitekey):
-        try:
-            while True:
-                solving = requests.get(f'https://token-recaptcha.com/?key={sitekey}&action=verify&page=dashboard&v=v3').json()
-                if solving['status'] == 'success':
-                    return solving['token']
-                else:
-                    continue
-        except:
-            return self.reCAPTCHA(sitekey)
-
-def check_dir():
-    if not os.path.exists("Penyimpanan"):
-        os.makedirs("Penyimpanan")
+def save_cookies(cookies):
+    with open('cookies.txt', 'a') as f:
+        f.write(f"{cookies}\n")
 
 if __name__ == '__main__':
     try:
-        check_dir()
-        if not os.path.exists("Penyimpanan/Subscribe.json"):
-            youtube_url = json.loads(requests.get('https://raw.githubusercontent.com/RozhakXD/YoLikers/refs/heads/main/Penyimpanan/Youtube.json').text)['Link']
-            os.system(f'xdg-open {youtube_url}')
-            with open('Penyimpanan/Subscribe.json', 'w') as w:
-                json.dump({"Status": True}, w)
-            time.sleep(2.5)
-            
-        os.system('git pull')
-        MAIN().LOGIN_COOKIES()
-        
-    except Exception as e:
-        printf(Panel(f"[bold red]{str(e)}", width=59, style="bold bright_black", title="[bold bright_black][Error]"))
-        sys.exit()
+        get_cookies()
     except KeyboardInterrupt:
-        printf("\n[bold red]Program terminated by user.")
-        sys.exit()
+        exit("\n[bold red]Program terminated by user!")
+    except Exception as e:
+        exit(f"[bold red]Error: {str(e)}")
