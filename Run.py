@@ -2,12 +2,25 @@ import requests
 import re
 import json
 import os
+import time
 from rich import print as printf
 from rich.panel import Panel
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
+
+def validate_cookie(cookie_string):
+    try:
+        headers = {
+            'Cookie': cookie_string,
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+        }
+        response = requests.get('https://www.facebook.com/me', headers=headers, allow_redirects=True)
+        return 'facebook.com/home' not in response.url
+    except:
+        return False
 
 def get_cookies():
     clear()
@@ -28,6 +41,15 @@ def get_cookies():
         printf("[bold red]Invalid choice!")
         return get_cookies()
 
+def loading_animation(description="Processing"):
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        transient=True,
+    ) as progress:
+        progress.add_task(description=description, total=None)
+        time.sleep(2)
+
 def get_from_login():
     clear()
     printf(Panel("[bold white]Enter your Facebook credentials", title="[bold white]Login"))
@@ -36,19 +58,23 @@ def get_from_login():
     password = Console().input("[bold white]Password: ")
     
     try:
+        loading_animation("Attempting login...")
+        
         headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
         }
         
-        # Get initial cookies
         session = requests.Session()
         response = session.get('https://m.facebook.com/', headers=headers)
         
-        # Extract login form data
-        lsd = re.search('name="lsd" value="(.*?)"', str(response.text)).group(1)
-        jazoest = re.search('name="jazoest" value="(.*?)"', str(response.text)).group(1)
-        m_ts = re.search('name="m_ts" value="(.*?)"', str(response.text)).group(1)
-        li = re.search('name="li" value="(.*?)"', str(response.text)).group(1)
+        try:
+            lsd = re.search('name="lsd" value="(.*?)"', str(response.text)).group(1)
+            jazoest = re.search('name="jazoest" value="(.*?)"', str(response.text)).group(1)
+            m_ts = re.search('name="m_ts" value="(.*?)"', str(response.text)).group(1)
+            li = re.search('name="li" value="(.*?)"', str(response.text)).group(1)
+        except AttributeError:
+            printf(Panel("[bold red]Failed to extract form data. Site might be blocking automated access.", title="[bold red]Error"))
+            return get_cookies()
         
         data = {
             'lsd': lsd,
@@ -62,13 +88,18 @@ def get_from_login():
             'login': 'Log In'
         }
         
-        # Perform login
-        response = session.post('https://m.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&ref=dbl', data=data, headers=headers, allow_redirects=True)
+        response = session.post('https://m.facebook.com/login/device-based/regular/login/?refsrc=deprecated&lwv=100&ref=dbl', 
+                              data=data, headers=headers, allow_redirects=True)
         
         if 'c_user' in session.cookies.get_dict():
             cookies = convert_cookies_to_string(session.cookies.get_dict())
-            save_cookies(cookies)
-            printf(Panel(f"[bold green]Success! Cookies saved to cookies.txt\n\n[bold white]{cookies}", title="[bold white]Cookies"))
+            
+            loading_animation("Validating cookies...")
+            if validate_cookie(cookies):
+                printf(Panel(f"[bold green]Success! Valid cookies:\n\n[bold white]{cookies}", title="[bold white]Result"))
+                Console().input("[bold green]Press Enter to continue...")
+            else:
+                printf(Panel("[bold red]Generated cookies are invalid!", title="[bold red]Error"))
         else:
             printf(Panel("[bold red]Login failed! Check your credentials or try again later.", title="[bold red]Error"))
             
@@ -84,6 +115,8 @@ def get_from_token():
     token = Console().input("[bold white]Token: ")
     
     try:
+        loading_animation("Validating token...")
+        
         headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
             'Authorization': f'Bearer {token}'
@@ -94,6 +127,7 @@ def get_from_token():
         if 'error' in response.json():
             printf(Panel("[bold red]Invalid token!", title="[bold red]Error"))
         else:
+            loading_animation("Generating cookies...")
             session = requests.Session()
             response = session.get(f'https://api.facebook.com/method/auth.getSessionforApp?access_token={token}&format=json&new_app_id=275254692598279&generate_session_cookies=1')
             
@@ -102,8 +136,12 @@ def get_from_token():
                 for cookie in response.json()['session_cookies']:
                     cookies += f"{cookie['name']}={cookie['value']}; "
                 
-                save_cookies(cookies)
-                printf(Panel(f"[bold green]Success! Cookies saved to cookies.txt\n\n[bold white]{cookies}", title="[bold white]Cookies"))
+                loading_animation("Validating cookies...")
+                if validate_cookie(cookies):
+                    printf(Panel(f"[bold green]Success! Valid cookies:\n\n[bold white]{cookies}", title="[bold white]Result"))
+                    Console().input("[bold green]Press Enter to continue...")
+                else:
+                    printf(Panel("[bold red]Generated cookies are invalid!", title="[bold red]Error"))
             else:
                 printf(Panel("[bold red]Failed to get cookies from token!", title="[bold red]Error"))
     
@@ -114,10 +152,6 @@ def get_from_token():
 
 def convert_cookies_to_string(cookie_dict):
     return '; '.join([f"{key}={value}" for key, value in cookie_dict.items()])
-
-def save_cookies(cookies):
-    with open('cookies.txt', 'a') as f:
-        f.write(f"{cookies}\n")
 
 if __name__ == '__main__':
     try:
