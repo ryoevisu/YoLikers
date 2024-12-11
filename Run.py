@@ -34,12 +34,14 @@ def HEADERS():
         'X-Requested-With': 'com.yo.app'
     }
 
-SUKSES, COOKIES, GAGAL, LOOPING = [], {"KEY": None}, [], 0
+SUKSES, COOKIES, GAGAL, LOOPING = [], {"KEY": None, "FB": None}, [], 0
 
 class MAIN:
     def __init__(self) -> None:
         self.retry_count = 0
         self.max_retries = 3
+        self.session = requests.Session()
+        self.session.headers.update(HEADERS())
 
     def LOGIN_COOKIES(self):
         try:
@@ -50,6 +52,8 @@ class MAIN:
             if 'c_user=' not in str(self.COOKIES):
                 printf(Panel("[bold red]Invalid cookies format. Please enter valid Facebook cookies.", width=59, style="bold bright_black", title="[bold bright_black][Error]"))
                 return self.LOGIN_COOKIES()
+
+            COOKIES["FB"] = self.COOKIES
 
             printf(Panel("[bold white]Please fill in the post id you want to react to, make sure the post can be liked by the\npublic and is not private. Fill in only numbers!", width=59, style="bold bright_black", subtitle="[bold bright_black][bold bright_black]╭──────", subtitle_align="left", title="[bold bright_black][ID Postingan]"))
             self.POST_ID = int(Console().input("[bold bright_black]   ╰─> "))
@@ -68,7 +72,7 @@ class MAIN:
                     if COOKIES['KEY'] is None:
                         printf("[bold bright_black]   ──>[bold green] Validating cookies...          ", end='\r')
                         time.sleep(1.5)
-                        if self.VALIDASI_COOKIES(self.COOKIES):
+                        if self.VALIDASI_COOKIES(COOKIES["FB"]):
                             continue
                     else:
                         printf("[bold bright_black]   ──>[bold green] Sending reaction...               ", end='\r')
@@ -101,94 +105,108 @@ class MAIN:
             return False
 
     def VALIDASI_COOKIES(self, facebook_cookies):
-        with requests.Session() as session:
-            try:
-                session.headers.update(HEADERS())
-                response = session.get('https://app.pagalworld2.com/')
-                self.COOKIES_STRING = "; ".join([f"{k}={v}" for k, v in session.cookies.get_dict().items()])
+        try:
+            # Parse Facebook cookies
+            cookie_dict = {}
+            for cookie in facebook_cookies.split(';'):
+                if cookie.strip():
+                    key, value = cookie.strip().split('=', 1)
+                    cookie_dict[key.strip()] = value.strip()
+            
+            # First request to get session cookies
+            response = self.session.get('https://app.pagalworld2.com/')
+            
+            # Combine site cookies with Facebook cookies
+            all_cookies = {**self.session.cookies.get_dict(), **cookie_dict}
+            self.COOKIES_STRING = "; ".join([f"{k}={v}" for k, v in all_cookies.items()])
+            
+            self.session.headers.update({'Cookie': self.COOKIES_STRING})
+            params = {
+                'cookie': facebook_cookies,
+                'access_token': '',
+            }
+            
+            response2 = self.session.get('https://app.pagalworld2.com/login.php', params=params)
+            
+            if 'Login%20Successful' in str(response2.url) or 'dashboard' in str(response2.url):
+                COOKIES["KEY"] = self.COOKIES_STRING
+                printf("[bold bright_black]   ──>[bold green] Login successful!              ", end='\r')
+                time.sleep(2)
+                return True
                 
-                session.headers.update({'Cookie': self.COOKIES_STRING})
-                params = {
-                    'cookie': facebook_cookies,
-                    'access_token': '',
-                }
-                
-                response2 = session.get('https://app.pagalworld2.com/login.php', params=params)
-                
-                if 'Login%20Successful' in str(response2.url) or 'dashboard' in str(response2.url):
-                    COOKIES["KEY"] = self.COOKIES_STRING
-                    printf("[bold bright_black]   ──>[bold green] Login successful!              ", end='\r')
-                    time.sleep(2)
-                    return True
-                    
-                elif any(error in str(response2.text) for error in ['Your Account is locked', 'checkpoint']):
-                    COOKIES["KEY"] = self.COOKIES_STRING
-                    printf("[bold bright_black]   ──>[bold yellow] Proceeding with login...              ", end='\r')
-                    time.sleep(2)
-                    return True
-                    
-                else:
-                    printf("[bold bright_black]   ──>[bold red] Login failed. Retrying...              ", end='\r')
-                    time.sleep(2)
-                    return False
-                    
-            except Exception as e:
-                printf(f"[bold bright_black]   ──>[bold red] Validation error: {str(e)}              ", end='\r')
+            elif any(error in str(response2.text) for error in ['Your Account is locked', 'checkpoint']):
+                printf("[bold bright_black]   ──>[bold red] Account locked or checkpoint              ", end='\r')
                 time.sleep(2)
                 return False
+                
+            else:
+                printf("[bold bright_black]   ──>[bold red] Login failed. Retrying...              ", end='\r')
+                time.sleep(2)
+                return False
+                
+        except Exception as e:
+            printf(f"[bold bright_black]   ──>[bold red] Validation error: {str(e)}              ", end='\r')
+            time.sleep(2)
+            return False
 
     def KIRIMKAN_REAKSI(self, post_id, tipe_rections):
         global SUKSES, GAGAL, LOOPING
-        with requests.Session() as session:
-            try:
-                session.headers.update(HEADERS())
-                session.headers.update({'Cookie': COOKIES['KEY']})
-                
-                get_token = session.get('https://app.pagalworld2.com/dashboard.php?type=custom')
-                if 'index.php?error=Login' in str(get_token.url):
-                    printf("[bold bright_black]   ──>[bold yellow] Session expired. Relogging...  ", end='\r')
-                    COOKIES["KEY"] = None
-                    time.sleep(2)
-                    return False
-                
-                find_token = re.search(r'var token = "(.*?)"', str(get_token.text))
-                if not find_token:
-                    printf("[bold bright_black]   ──>[bold red] Token not found. Retrying...  ", end='\r')
-                    time.sleep(2)
-                    return False
-                
-                token = find_token.group(1)
-                data = {
-                    'link': f'https://m.facebook.com/{post_id}',
-                    'type': 'react',
-                    'token': token,
-                    'reaction': tipe_rections
-                }
-                
-                response = session.post('https://app.pagalworld2.com/modules/system/ajax.php', data=data)
-                
-                if 'Time Limit Reached' in str(response.text):
-                    printf(Panel("[bold red]Daily limit reached. Please try again tomorrow or use another account.", width=59, style="bold bright_black", title="[bold bright_black][Limit]"))
-                    return False
-                
-                elif 'Successfully Reacted' in str(response.text):
-                    LOOPING += 1
-                    SUKSES.append(LOOPING)
-                    printf(f"[bold bright_black]   ──>[bold green] Success: {len(SUKSES)} Failed: {len(GAGAL)}              ", end='\r')
-                    return True
-                
-                else:
-                    LOOPING += 1
-                    GAGAL.append(LOOPING)
-                    printf(f"[bold bright_black]   ──>[bold red] Success: {len(SUKSES)} Failed: {len(GAGAL)}              ", end='\r')
-                    return False
-                
-            except Exception as e:
-                LOOPING += 1
-                GAGAL.append(LOOPING)
-                printf(f"[bold bright_black]   ──>[bold red] Error: {str(e)}              ", end='\r')
+        try:
+            self.session.headers.update({'Cookie': COOKIES['KEY']})
+            
+            # Verify session before each request
+            check_session = self.session.get('https://app.pagalworld2.com/dashboard.php')
+            if 'index.php?error=Login' in str(check_session.url):
+                printf("[bold bright_black]   ──>[bold yellow] Session expired. Relogging...  ", end='\r')
+                COOKIES["KEY"] = None
+                time.sleep(2)
+                return self.VALIDASI_COOKIES(COOKIES["FB"])
+            
+            get_token = self.session.get('https://app.pagalworld2.com/dashboard.php?type=custom')
+            find_token = re.search(r'var token = "(.*?)"', str(get_token.text))
+            
+            if not find_token:
+                printf("[bold bright_black]   ──>[bold red] Token not found. Retrying...  ", end='\r')
                 time.sleep(2)
                 return False
+            
+            token = find_token.group(1)
+            data = {
+                'link': f'https://m.facebook.com/{post_id}',
+                'type': 'react',
+                'token': token,
+                'reaction': tipe_rections
+            }
+            
+            response = self.session.post('https://app.pagalworld2.com/modules/system/ajax.php', data=data)
+            
+            if 'Time Limit Reached' in str(response.text):
+                printf(Panel("[bold red]Daily limit reached. Please try again tomorrow or use another account.", width=59, style="bold bright_black", title="[bold bright_black][Limit]"))
+                return False
+            
+            elif 'Successfully Reacted' in str(response.text):
+                LOOPING += 1
+                SUKSES.append(LOOPING)
+                printf(f"[bold bright_black]   ──>[bold green] Success: {len(SUKSES)} Failed: {len(GAGAL)}              ", end='\r')
+                return True
+            
+            else:
+                LOOPING += 1
+                GAGAL.append(LOOPING)
+                printf(f"[bold bright_black]   ──>[bold red] Success: {len(SUKSES)} Failed: {len(GAGAL)}              ", end='\r')
+                return False
+            
+        except requests.exceptions.ConnectionError:
+            printf("[bold bright_black]   ──>[bold red] Connection error. Retrying...  ", end='\r')
+            time.sleep(5)
+            return self.KIRIMKAN_REAKSI(post_id, tipe_rections)
+            
+        except Exception as e:
+            LOOPING += 1
+            GAGAL.append(LOOPING)
+            printf(f"[bold bright_black]   ──>[bold red] Error: {str(e)}              ", end='\r')
+            time.sleep(2)
+            return False
 
 class BYPASS:
     def __init__(self) -> None:
