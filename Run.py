@@ -128,21 +128,27 @@ class MAIN:
             
             response2 = self.session.get('https://app.pagalworld2.com/login.php', params=params)
             
-            if 'Login%20Successful' in str(response2.url) or 'dashboard' in str(response2.url):
+            # Improved login validation
+            if 'dashboard.php' in response2.url or 'Login%20Successful' in response2.url:
                 COOKIES["KEY"] = self.COOKIES_STRING
                 printf("[bold bright_black]   ──>[bold green] Login successful!              ", end='\r')
                 time.sleep(2)
                 return True
-                
-            elif any(error in str(response2.text) for error in ['Your Account is locked', 'checkpoint']):
-                printf("[bold bright_black]   ──>[bold red] Account locked or checkpoint              ", end='\r')
-                time.sleep(2)
-                return False
-                
-            else:
-                printf("[bold bright_black]   ──>[bold red] Login failed. Retrying...              ", end='\r')
-                time.sleep(2)
-                return False
+            
+            # Try an additional validation if initial check fails
+            try:
+                dashboard_check = self.session.get('https://app.pagalworld2.com/dashboard.php')
+                if 'dashboard' in dashboard_check.url and 'error' not in dashboard_check.url:
+                    COOKIES["KEY"] = self.COOKIES_STRING
+                    printf("[bold bright_black]   ──>[bold green] Login successful!              ", end='\r')
+                    time.sleep(2)
+                    return True
+            except:
+                pass
+            
+            printf("[bold bright_black]   ──>[bold red] Login failed. Retrying...              ", end='\r')
+            time.sleep(2)
+            return False
                 
         except Exception as e:
             printf(f"[bold bright_black]   ──>[bold red] Validation error: {str(e)}              ", end='\r')
